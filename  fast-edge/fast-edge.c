@@ -1,13 +1,61 @@
 /*
 	FAST-EDGE
-	MIT License
+	Copyright (c) 2009 Benjamin C. Haynor
+
+	Permission is hereby granted, free of charge, to any person
+	obtaining a copy of this software and associated documentation
+	files (the "Software"), to deal in the Software without
+	restriction, including without limitation the rights to use,
+	copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the
+	Software is furnished to do so, subject to the following
+	conditions:
+
+	The above copyright notice and this permission notice shall be
+	included in all copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+	OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+	NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+	HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+	OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*
+	build commands: gcc -Wall imageio.c fast-edge.c -o fastedge -lm -g -O3 -ffast-math
+	
+	> Perl uses gcc -g -O -pedantic -Wall -W -Wshadow -Wpointer-arith
+> -Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings
+> -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Wno-long-long
+
+And FreeBSD's make.conf sample has the following:
+
+# BDECFLAGS are a set of gcc warning settings that Bruce Evans has suggested
+# for use in developing FreeBSD and testing changes.  They can be used by
+# putting "CFLAGS+=3D${BDECFLAGS}" in /etc/make.conf.  -Wconversion is not
+# included here due to compiler bugs, e.g., mkdir()'s mode_t argument.
+#
+BDECFLAGS=3D	-W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align \
+		-Wcast-qual -Wchar-subscripts -Winline \
+		-Wmissing-prototypes -Wnested-externs -Wpointer-arith \
+		-Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings
+
+*/
+
+/*
+STRICT BUILD
+gcc -W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align -Wcast-qual -Wchar-subscripts -Winline -Wmissing-prototypes -Wnested-externs -Wpointer-arith -Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings imageio.c fast-edge.c example.c -o example -lm -g -O3 -ffast-math
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include "imageio.h"
+#include "fast-edge.h"
 
 #define PI 3.14159265
 #define HIGH_THRESHOLD_PERCENTAGE 0.15 // percentage of pixels that meet the high threshold - for example 0.15 will ensure that at least 15% of edge pixels are considered to meet the high threshold
@@ -16,43 +64,7 @@
 //#define ABS_APPROX		// uncomment to use the absolute value approximation of sqrt(Gx ^ 2 + Gy ^2)
 //#define PRINT_HISTOGRAM	// uncomment to print the histogram used to estimate the threshold
 
-struct image {
-	int width;
-	int height;
-	unsigned char * pixel_data;
-};
 
-void write_pgm_image(struct image * img) 
-{
-	FILE *fp_out;
-	int i = 0;
-	if((fp_out =fopen("fast_canny_output.pgm","w"))== 0)
-		printf("Error opening output file.");
-	fprintf(fp_out, "P5\n#FAST-EDGE\n%d %d\n255\n", img->width, img->height);
-	for(i = 0; i < (img->height * img->width); i++)
-		fputc(img->pixel_data[i], fp_out);
-	fclose(fp_out);
-}
-
-int read_pgm_hdr(FILE *fp, int *w, int *h)
-{
-	char filetype[4];
-	int maxval;
-	if(skipcomment(fp) == EOF || fscanf(fp, "%2s\n", filetype) != 1 || strcmp(filetype, "P5") || skipcomment(fp) == EOF || fscanf(fp, "%d", w) != 1 || skipcomment(fp) == EOF || fscanf(fp, "%d", h) != 1 || skipcomment(fp) == EOF || fscanf(fp, "%d%*c", &maxval) != 1 || maxval > 255) {
-		return(-1);
-	} else { 
-		return(0);
-	}
-}
-
-int skipcomment(FILE *fp)
-{
-	int i;
-	if((i = getc(fp)) == '#') {
-		while((i = getc(fp)) != '\n' && i != EOF);
-	}
-	return(ungetc(i, fp));
-}
 /*
 	GAUSSIAN_NOISE_ REDUCE
 	apply 5x5 Gaussian convolution filter, shrinks the image by 4 pixels in each direction, using Gaussian filter found here:
@@ -271,7 +283,7 @@ void non_max_suppression(struct image * img, int g[], int dir[]) {//float theta[
 	#ifdef CLOCK
 	clock_t start = clock();
 	#endif
-	int w, h, x, y, max_x, max_y, s;
+	int w, h, x, y, max_x, max_y;
 	w = img->width;
 	h = img->height;
 	max_x = w;
@@ -375,61 +387,3 @@ void estimate_threshold(struct image * img, int * high, int * low) {
 	#endif
 }
 
-int main(int argc, char *argv[])
-{
-	FILE *fp;
-	int w, h, i;
-	if ((fp = fopen(argv[1], "r")) == NULL) {
-		printf("ERROR: %s can't open %s!", argv[0], argv[1]);
-	} else {
-		if (read_pgm_hdr(fp, &w, &h) != -1) {
-			struct image img;
-			printf("*** PGM file recognized, reading data into image struct ***\n");
-			img.width = w;
-			img.height = h;
-			unsigned char *img_data = malloc(w * h * sizeof(char));
-			for (i = 0; i < w * h; i++) {
-				img_data[i] = fgetc(fp);
-			}
-			img.pixel_data = img_data;
-			struct image img_gauss;
-			unsigned char *img_gauss_data = malloc(w * h * sizeof(char));
-			img_gauss.pixel_data = img_gauss_data;
-			printf("*** image struct initialized ***\n");
-			printf("*** performing gaussian noise reduction ***\n");
-			gaussian_noise_reduce(&img, &img_gauss);
-			int * g_x = malloc(img_gauss.width * img_gauss.height * sizeof(int));
-			int * g_y = malloc(img_gauss.width * img_gauss.height * sizeof(int));
-			int * g = malloc(img_gauss.width * img_gauss.height * sizeof(int));
-			int * dir = malloc(img_gauss.width * img_gauss.height * sizeof(int));
-			printf("*** calculating gradient ***\n");
-			calc_gradient_sobel(&img_gauss, g_x, g_y, g, dir);
-			struct image img_out;
-			img_out.width = w - 6;
-			img_out.height = h - 6;
-			unsigned char *img_out_data = malloc(w * h * sizeof(char));
-			img_out.pixel_data = img_out_data;
-			printf("*** performing non-maximum suppression ***\n");
-			non_max_suppression(&img_out, g, dir);
-			
-			int high, low;
-			estimate_threshold(&img_out, &high, &low);
-			
-			printf("*** estimated thresholds: hi %d low %d ***\n", high, low);
-			/*
-			// threshold at high threshold
-			for (i = 0; i < img_out.width * img_out.height; i++) {
-				if (img_out.pixel_data[i] > high) {
-					img_out.pixel_data[i] = 0xFF;
-				} else {
-					img_out.pixel_data[i] = 0x00;
-				}
-			}
-			*/
-			write_pgm_image(&img_out);
-		} else {
-			printf("ERROR: %s is not a PGM file!", argv[1]);
-		}
-	}
-
-}
