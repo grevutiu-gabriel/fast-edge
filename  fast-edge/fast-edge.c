@@ -479,21 +479,45 @@ void erode_1d_v(struct image * img, struct image * img_out) {
 }
 
 void erode(struct image * img_in, struct image * img_scratch, struct image * img_out) {
+	#ifdef CLOCK
+	clock_t start = clock();
+	#endif
 	erode_1d_h(img_in, img_scratch);
 	erode_1d_v(img_scratch, img_out);
+	#ifdef CLOCK
+	printf("Erosion - time elapsed: %f\n", ((double)clock() - start) / CLOCKS_PER_SEC);
+	#endif
 }
 
 void dilate(struct image * img_in, struct image * img_scratch, struct image * img_out) {
+	#ifdef CLOCK
+	clock_t start = clock();
+	#endif
 	dilate_1d_h(img_in, img_scratch);
 	dilate_1d_v(img_scratch, img_out);
+	#ifdef CLOCK
+	printf("Dilation - time elapsed: %f\n", ((double)clock() - start) / CLOCKS_PER_SEC);
+	#endif
 }
 
 void morph_open(struct image * img_in, struct image * img_scratch, struct image * img_scratch2, struct image * img_out) {
+	#ifdef CLOCK
+	clock_t start = clock();
+	#endif
 	erode(img_in, img_scratch, img_scratch2);
 	dilate(img_scratch2, img_scratch, img_out);
+	#ifdef CLOCK
+	printf("Morphological opening - time elapsed: %f\n", ((double)clock() - start) / CLOCKS_PER_SEC);
+	#endif
 }
 
 void morph_close(struct image * img_in, struct image * img_scratch, struct image * img_scratch2, struct image * img_out) {
+	#ifdef CLOCK
+	clock_t start = clock();
+	#endif
 	dilate(img_in, img_scratch, img_scratch2);
 	erode(img_scratch2, img_scratch, img_out);
+	#ifdef CLOCK
+	printf("Morphological closing - time elapsed: %f\n", ((double)clock() - start) / CLOCKS_PER_SEC);
+	#endif
 }
