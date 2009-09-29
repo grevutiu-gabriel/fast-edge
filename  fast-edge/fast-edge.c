@@ -57,14 +57,6 @@ gcc -W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align -Wcast-qual -Wchar
 #include "imageio.h"
 #include "fast-edge.h"
 
-#define PI 3.14159265
-#define HIGH_THRESHOLD_PERCENTAGE 0.15 // percentage of pixels that meet the high threshold - for example 0.15 will ensure that at least 15% of edge pixels are considered to meet the high threshold
-
-//#define CLOCK			// uncomment to show running times of image processing functions (in seconds)
-//#define ABS_APPROX		// uncomment to use the absolute value approximation of sqrt(Gx ^ 2 + Gy ^2)
-//#define PRINT_HISTOGRAM	// uncomment to print the histogram used to estimate the threshold
-
-
 /*
 	GAUSSIAN_NOISE_ REDUCE
 	apply 5x5 Gaussian convolution filter, shrinks the image by 4 pixels in each direction, using Gaussian filter found here:
@@ -75,17 +67,16 @@ void gaussian_noise_reduce(struct image * img_in, struct image * img_out)
 	#ifdef CLOCK
 	clock_t start = clock();
 	#endif
-	int w, h, x, y, max_x, max_y, n;
-	n = 0;
+	int w, h, x, y, max_x, max_y;
 	w = img_in->width;
 	h = img_in->height;
-	img_out->width = w - 4;
-	img_out->height = h - 4;
+	img_out->width = w;
+	img_out->height = h;
 	max_x = w - 2;
 	max_y = w * (h - 2);
 	for (y = w * 2; y < max_y; y += w) {
 		for (x = 2; x < max_x; x++) {
-			img_out->pixel_data[n++] = (2 * img_in->pixel_data[x + y - 2 - w - w] + 
+			img_out->pixel_data[x + y] = (2 * img_in->pixel_data[x + y - 2 - w - w] + 
 			4 * img_in->pixel_data[x + y - 1 - w - w] + 
 			5 * img_in->pixel_data[x + y - w - w] + 
 			4 * img_in->pixel_data[x + y + 1 - w - w] + 
@@ -125,37 +116,36 @@ void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], i
 	#ifdef CLOCK
 	clock_t start = clock();
 	#endif
-	int w, h, x, y, max_x, max_y, n;
+	int w, h, x, y, max_x, max_y;
 	float g_div;
 	w = img_in->width;
 	h = img_in->height;
-	max_x = w - 1;
-	max_y = w * (h - 1);
-	n = 0;
-	for (y = w; y < max_y; y += w) {
-		for (x = 1; x < max_x; x++) {
-			g_x[n] = (2 * img_in->pixel_data[x + y + 1] 
+	max_x = w - 3;
+	max_y = w * (h - 3);
+	for (y = w * 3; y < max_y; y += w) {
+		for (x = 3; x < max_x; x++) {
+			g_x[x + y] = (2 * img_in->pixel_data[x + y + 1] 
 				+ img_in->pixel_data[x + y - w + 1]
 				+ img_in->pixel_data[x + y + w + 1]
 				- 2 * img_in->pixel_data[x + y - 1] 
 				- img_in->pixel_data[x + y - w - 1]
 				- img_in->pixel_data[x + y + w - 1]);
-			g_y[n] = 2 * img_in->pixel_data[x + y - w] 
+			g_y[x + y] = 2 * img_in->pixel_data[x + y - w] 
 				+ img_in->pixel_data[x + y - w + 1]
 				+ img_in->pixel_data[x + y - w - 1]
 				- 2 * img_in->pixel_data[x + y + w] 
 				- img_in->pixel_data[x + y + w + 1]
 				- img_in->pixel_data[x + y + w - 1];
 			#ifndef ABS_APPROX
-			g[n] = sqrt(g_x[n] * g_x[n] + g_y[n] * g_y[n]);
+			g[x + y] = sqrt(g_x[x + y] * g_x[x + y] + g_y[x + y] * g_y[x + y]);
 			#endif
 			#ifdef ABS_APPROX
-			g[n] = abs(g_x[n]) + abs(g_y[n]);
+			g[x + y] = abs(g_x[x + y]) + abs(g_y[x + y]);
 			#endif
-			if (g_x[n] == 0) {
-				dir[n] = 2;
+			if (g_x[x + y] == 0) {
+				dir[x + y] = 2;
 			} else {
-				g_div = g_y[n] / (float) g_x[n];
+				g_div = g_y[x + y] / (float) g_x[x + y];
 				/* the following commented-out code is slightly faster than the code that follows, but is a slightly worse approximation for determining the edge direction angle
 				if (g_div < 0) {
 					if (g_div < -1) {
@@ -173,27 +163,26 @@ void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], i
 				*/
 				if (g_div < 0) {
 					if (g_div < -2.41421356237) {
-						dir[n] = 0;
+						dir[x + y] = 0;
 					} else {
 						if (g_div < -0.414213562373) {
-							dir[n] = 1;
+							dir[x + y] = 1;
 						} else {
-							dir[n] = 2;
+							dir[x + y] = 2;
 						}
 					}
 				} else {
 					if (g_div > 2.41421356237) {
-						dir[n] = 0;
+						dir[x + y] = 0;
 					} else {
 						if (g_div > 0.414213562373) {
-							dir[n] = 3;
+							dir[x + y] = 3;
 						} else {
-							dir[n] = 2;
+							dir[x + y] = 2;
 						}
 					}
 				}
 			}
-			n++;
 		}
 		
 	}	
@@ -371,11 +360,11 @@ void estimate_threshold(struct image * img, int * high, int * low) {
 		i--;
 	}
 	*high = i;
-	i = 0;
+	i = 1;
 	while (histogram[i] == 0) {
 		i++;
 	}
-	*low = (*high + i) / 2;
+	*low = (*high + i) * LOW_THRESHOLD_PERCENTAGE;
 	#ifdef PRINT_HISTOGRAM
 	for (i = 0; i < 256; i++) {
 		printf("i %d count %d\n", i, histogram[i]);
@@ -387,3 +376,124 @@ void estimate_threshold(struct image * img, int * high, int * low) {
 	#endif
 }
 
+void hysteresis (int high, int low, struct image * img, struct image * img_mag)
+{
+	#ifdef CLOCK
+	clock_t start = clock();
+	#endif
+	int x, y, n, max;
+	printf("hysteresis\n");
+	max = img->width * img->height;
+	for (n = 0; n < max; n++) {
+		img->pixel_data[n] = 0x00;
+	}
+	for (y=0; y < img->height; y++) {
+	  for (x=0; x < img->width; x++) {
+			if (img_mag->pixel_data[y * img->width + x] >= high) {
+				trace (x, y, low, img, img_mag);
+			}
+		}
+	}
+	#ifdef CLOCK
+	printf("Hysteresis - time elapsed: %f\n", ((double)clock() - start) / CLOCKS_PER_SEC);
+	#endif
+}
+
+int trace(int x, int y, int low, struct image * img_out, struct image * img_grad)
+{
+	int y_off, x_off;//, flag;
+	if (img_out->pixel_data[y * img_out->width + x] == 0)
+	{
+		img_out->pixel_data[y * img_out->width + x] = 0xFF;
+		//flag = 0;
+		for (y_off = -1; y_off <=1; y_off++)
+		{
+		    for(x_off = -1; x_off <= 1; x_off++)
+		    {
+				if (!(y == 0 && x_off == 0) && range(img_grad, x + x_off, y + y_off) && img_grad->pixel_data[(y + y_off) * img_out->width + x + x_off] >= low) {
+					if (trace(x + x_off, y + y_off, low, img_out, img_grad))
+					{
+					    return(1);
+					}
+				}
+		    }
+		}
+		return(1);
+	}
+	return(0);
+}
+
+int range(struct image * img, int x, int y)
+{
+	if ((x < 0) || (x >= img->width)) {
+		return(0);
+	}
+	if ((y < 0) || (y >= img->height)) {
+		return(0);
+	}
+	return(1);
+}
+
+void dilate_1d_h(struct image * img, struct image * img_out) {
+	int x, y, offset, y_max;
+	y_max = img->height * (img->width - 2);
+	for (y = 2 * img->width; y < y_max; y += img->width) {
+		for (x = 2; x < img->width - 2; x++) {
+			offset = x + y;
+			img_out->pixel_data[offset] = max(max(max(max(img->pixel_data[offset-2], img->pixel_data[offset-1]), img->pixel_data[offset]), img->pixel_data[offset+1]), img->pixel_data[offset+2]);	
+		}
+	}
+}
+
+void dilate_1d_v(struct image * img, struct image * img_out) {
+	int x, y, offset, y_max;
+	y_max = img->height * (img->width - 2);
+	for (y = 2 * img->width; y < y_max; y += img->width) {
+		for (x = 2; x < img->width - 2; x++) {
+			offset = x + y;
+			img_out->pixel_data[offset] = max(max(max(max(img->pixel_data[offset-2 * img->width], img->pixel_data[offset-img->width]), img->pixel_data[offset]), img->pixel_data[offset+img->width]), img->pixel_data[offset+2*img->width]);	
+		}
+	}
+}
+
+void erode_1d_h(struct image * img, struct image * img_out) {
+	int x, y, offset, y_max;
+	y_max = img->height * (img->width - 2);
+	for (y = 2 * img->width; y < y_max; y += img->width) {
+		for (x = 2; x < img->width - 2; x++) {
+			offset = x + y;
+			img_out->pixel_data[offset] = min(min(min(min(img->pixel_data[offset-2], img->pixel_data[offset-1]), img->pixel_data[offset]), img->pixel_data[offset+1]), img->pixel_data[offset+2]);	
+		}
+	}
+}
+
+void erode_1d_v(struct image * img, struct image * img_out) {
+	int x, y, offset, y_max;
+	y_max = img->height * (img->width - 2);
+	for (y = 2 * img->width; y < y_max; y += img->width) {
+		for (x = 2; x < img->width - 2; x++) {
+			offset = x + y;
+			img_out->pixel_data[offset] = min(min(min(min(img->pixel_data[offset-2 * img->width], img->pixel_data[offset-img->width]), img->pixel_data[offset]), img->pixel_data[offset+img->width]), img->pixel_data[offset+2*img->width]);	
+		}
+	}
+}
+
+void erode(struct image * img_in, struct image * img_scratch, struct image * img_out) {
+	erode_1d_h(img_in, img_scratch);
+	erode_1d_v(img_scratch, img_out);
+}
+
+void dilate(struct image * img_in, struct image * img_scratch, struct image * img_out) {
+	dilate_1d_h(img_in, img_scratch);
+	dilate_1d_v(img_scratch, img_out);
+}
+
+void morph_open(struct image * img_in, struct image * img_scratch, struct image * img_scratch2, struct image * img_out) {
+	erode(img_in, img_scratch, img_scratch2);
+	dilate(img_scratch2, img_scratch, img_out);
+}
+
+void morph_close(struct image * img_in, struct image * img_scratch, struct image * img_scratch2, struct image * img_out) {
+	dilate(img_in, img_scratch, img_scratch2);
+	erode(img_scratch2, img_scratch, img_out);
+}
