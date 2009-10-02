@@ -57,6 +57,42 @@ gcc -W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align -Wcast-qual -Wchar
 #include "imageio.h"
 #include "fast-edge.h"
 
+
+/*
+	CANNY EDGE DETECT
+	DOES NOT PERFORM NOISE REDUCTION - PERFORM NOISE REDUCTION PRIOR TO USE
+	Noise reduction omitted, as some applications benefit from morphological operations such as opening or closing as opposed to Gaussian noise reduction
+	If your application always takes the same size input image, uncomment the definitions of WIDTH and HEIGHT in the header file and define them to the size of your input image,
+	otherwise the required intermediate arrays will be dynamically allocated.
+	If WIDTH and HEIGHT are defined, the arrays will be allocated in the compiler directive that follows:
+*/
+#ifdef WIDTH
+int g[WIDTH  * HEIGHT], dir[WIDTH  * HEIGHT] = {0};
+unsigned char img_scratch_data[WIDTH  * HEIGHT] = {0};
+#endif
+void canny_edge_detect(struct image * img_in, struct image * img_out) {
+	struct image img_scratch;
+	int high, low;
+	#ifndef WIDTH
+	int * g = malloc(img_in->width * img_in->height * sizeof(int));
+	int * dir = malloc(img_in->width * img_in->height * sizeof(int));
+	unsigned char * img_scratch_data = malloc(img_in->width * img_in->height * sizeof(char));
+	#endif
+	img_scratch.width = img_in->width;
+	img_scratch.height = img_in->height;
+	img_scratch.pixel_data = img_scratch_data;
+	calc_gradient_sobel(img_in, g, dir);
+	printf("*** performing non-maximum suppression ***\n");
+	non_max_suppression(&img_scratch, g, dir);
+	estimate_threshold(&img_scratch, &high, &low);
+	hysteresis(high, low, &img_scratch, img_out);
+	#ifndef WIDTH
+	free(g);
+	free(dir);
+	free(img_scratch_data);
+	#endif
+}
+
 /*
 	GAUSSIAN_NOISE_ REDUCE
 	apply 5x5 Gaussian convolution filter, shrinks the image by 4 pixels in each direction, using Gaussian filter found here:
@@ -112,11 +148,12 @@ void gaussian_noise_reduce(struct image * img_in, struct image * img_out)
 	CALC_GRADIENT_SOBEL
 	calculates the result of the Sobel operator - http://en.wikipedia.org/wiki/Sobel_operator - and estimates edge direction angle
 */
-void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], int dir[]) {//float theta[]) {
+/*void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], int dir[]) {//float theta[]) {*/
+void calc_gradient_sobel(struct image * img_in, int g[], int dir[]) {
 	#ifdef CLOCK
 	clock_t start = clock();
 	#endif
-	int w, h, x, y, max_x, max_y;
+	int w, h, x, y, max_x, max_y, g_x, g_y;
 	float g_div;
 	w = img_in->width;
 	h = img_in->height;
@@ -124,6 +161,7 @@ void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], i
 	max_y = w * (h - 3);
 	for (y = w * 3; y < max_y; y += w) {
 		for (x = 3; x < max_x; x++) {
+			/*
 			g_x[x + y] = (2 * img_in->pixel_data[x + y + 1] 
 				+ img_in->pixel_data[x + y - w + 1]
 				+ img_in->pixel_data[x + y + w + 1]
@@ -136,16 +174,30 @@ void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], i
 				- 2 * img_in->pixel_data[x + y + w] 
 				- img_in->pixel_data[x + y + w + 1]
 				- img_in->pixel_data[x + y + w - 1];
+				*/
+			g_x = (2 * img_in->pixel_data[x + y + 1] 
+				+ img_in->pixel_data[x + y - w + 1]
+				+ img_in->pixel_data[x + y + w + 1]
+				- 2 * img_in->pixel_data[x + y - 1] 
+				- img_in->pixel_data[x + y - w - 1]
+				- img_in->pixel_data[x + y + w - 1]);
+			g_y = 2 * img_in->pixel_data[x + y - w] 
+				+ img_in->pixel_data[x + y - w + 1]
+				+ img_in->pixel_data[x + y - w - 1]
+				- 2 * img_in->pixel_data[x + y + w] 
+				- img_in->pixel_data[x + y + w + 1]
+				- img_in->pixel_data[x + y + w - 1];
 			#ifndef ABS_APPROX
-			g[x + y] = sqrt(g_x[x + y] * g_x[x + y] + g_y[x + y] * g_y[x + y]);
+			/*g[x + y] = sqrt(g_x[x + y] * g_x[x + y] + g_y[x + y] * g_y[x + y]); */
+			g[x + y] = sqrt(g_x * g_x + g_y * g_y);
 			#endif
 			#ifdef ABS_APPROX
 			g[x + y] = abs(g_x[x + y]) + abs(g_y[x + y]);
 			#endif
-			if (g_x[x + y] == 0) {
+			if (g_x == 0) {
 				dir[x + y] = 2;
 			} else {
-				g_div = g_y[x + y] / (float) g_x[x + y];
+				g_div = g_y / (float) g_x;
 				/* the following commented-out code is slightly faster than the code that follows, but is a slightly worse approximation for determining the edge direction angle
 				if (g_div < 0) {
 					if (g_div < -1) {
@@ -376,21 +428,20 @@ void estimate_threshold(struct image * img, int * high, int * low) {
 	#endif
 }
 
-void hysteresis (int high, int low, struct image * img, struct image * img_mag)
+void hysteresis (int high, int low, struct image * img_in, struct image * img_out)
 {
 	#ifdef CLOCK
 	clock_t start = clock();
 	#endif
 	int x, y, n, max;
-	printf("hysteresis\n");
-	max = img->width * img->height;
+	max = img_in->width * img_in->height;
 	for (n = 0; n < max; n++) {
-		img->pixel_data[n] = 0x00;
+		img_out->pixel_data[n] = 0x00;
 	}
-	for (y=0; y < img->height; y++) {
-	  for (x=0; x < img->width; x++) {
-			if (img_mag->pixel_data[y * img->width + x] >= high) {
-				trace (x, y, low, img, img_mag);
+	for (y=0; y < img_out->height; y++) {
+	  for (x=0; x < img_out->width; x++) {
+			if (img_in->pixel_data[y * img_out->width + x] >= high) {
+				trace (x, y, low, img_in, img_out);
 			}
 		}
 	}
@@ -399,19 +450,18 @@ void hysteresis (int high, int low, struct image * img, struct image * img_mag)
 	#endif
 }
 
-int trace(int x, int y, int low, struct image * img_out, struct image * img_grad)
+int trace(int x, int y, int low, struct image * img_in, struct image * img_out)
 {
 	int y_off, x_off;//, flag;
 	if (img_out->pixel_data[y * img_out->width + x] == 0)
 	{
 		img_out->pixel_data[y * img_out->width + x] = 0xFF;
-		//flag = 0;
 		for (y_off = -1; y_off <=1; y_off++)
 		{
 		    for(x_off = -1; x_off <= 1; x_off++)
 		    {
-				if (!(y == 0 && x_off == 0) && range(img_grad, x + x_off, y + y_off) && img_grad->pixel_data[(y + y_off) * img_out->width + x + x_off] >= low) {
-					if (trace(x + x_off, y + y_off, low, img_out, img_grad))
+				if (!(y == 0 && x_off == 0) && range(img_in, x + x_off, y + y_off) && img_in->pixel_data[(y + y_off) * img_out->width + x + x_off] >= low) {
+					if (trace(x + x_off, y + y_off, low, img_in, img_out))
 					{
 					    return(1);
 					}

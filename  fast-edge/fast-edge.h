@@ -33,17 +33,22 @@
 #define min(X,Y) ((X) < (Y) ? (X) : (Y))
 #define max(X,Y) ((X) < (Y) ? (Y) : (X))
 
+//#define WIDTH 640		// uncomment to define width for situations where width is always known
+//#define HEIGHT 480		// uncomment to define heigh for situations where height is always known
+
 #define CLOCK			// uncomment to show running times of image processing functions (in seconds)
 //#define ABS_APPROX		// uncomment to use the absolute value approximation of sqrt(Gx ^ 2 + Gy ^2)
 //#define PRINT_HISTOGRAM	// uncomment to print the histogram used to estimate the threshold
 
+void canny_edge_detect(struct image * img_in, struct image * img_out);
 void gaussian_noise_reduce(struct image * img_in, struct image * img_out);
-void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], int dir[]);
+/*void calc_gradient_sobel(struct image * img_in, int g_x[], int g_y[], int g[], int dir[]);*/
+void calc_gradient_sobel(struct image * img_in, int g[], int dir[]);
 void calc_gradient_scharr(struct image * img_in, int g_x[], int g_y[], int g[], int dir[]);
 void non_max_suppression(struct image * img, int g[], int dir[]);
 void estimate_threshold(struct image * img, int * high, int * low);
-void hysteresis (int high, int low, struct image * img, struct image * img_mag);
-int trace (int x, int y, int low, struct image * img, struct image * img_grad);
+void hysteresis (int high, int low, struct image * img_in, struct image * img_out);
+int trace (int x, int y, int low, struct image * img_in, struct image * img_out);
 int range (struct image * img, int x, int y);
 void dilate_1d_h(struct image * img, struct image * img_out);
 void dilate_1d_v(struct image * img, struct image * img_out);
