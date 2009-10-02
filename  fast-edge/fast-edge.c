@@ -135,20 +135,6 @@ void calc_gradient_sobel(struct image * img_in, int g[], int dir[]) {
 	max_y = w * (h - 3);
 	for (y = w * 3; y < max_y; y += w) {
 		for (x = 3; x < max_x; x++) {
-			/*
-			g_x[x + y] = (2 * img_in->pixel_data[x + y + 1] 
-				+ img_in->pixel_data[x + y - w + 1]
-				+ img_in->pixel_data[x + y + w + 1]
-				- 2 * img_in->pixel_data[x + y - 1] 
-				- img_in->pixel_data[x + y - w - 1]
-				- img_in->pixel_data[x + y + w - 1]);
-			g_y[x + y] = 2 * img_in->pixel_data[x + y - w] 
-				+ img_in->pixel_data[x + y - w + 1]
-				+ img_in->pixel_data[x + y - w - 1]
-				- 2 * img_in->pixel_data[x + y + w] 
-				- img_in->pixel_data[x + y + w + 1]
-				- img_in->pixel_data[x + y + w - 1];
-				*/
 			g_x = (2 * img_in->pixel_data[x + y + 1] 
 				+ img_in->pixel_data[x + y - w + 1]
 				+ img_in->pixel_data[x + y + w + 1]
@@ -162,7 +148,6 @@ void calc_gradient_sobel(struct image * img_in, int g[], int dir[]) {
 				- img_in->pixel_data[x + y + w + 1]
 				- img_in->pixel_data[x + y + w - 1];
 			#ifndef ABS_APPROX
-			/*g[x + y] = sqrt(g_x[x + y] * g_x[x + y] + g_y[x + y] * g_y[x + y]); */
 			g[x + y] = sqrt(g_x * g_x + g_y * g_y);
 			#endif
 			#ifdef ABS_APPROX
