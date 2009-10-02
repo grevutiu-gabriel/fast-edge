@@ -49,9 +49,8 @@ int main(int argc, char *argv[])
 				img_data[i] = fgetc(fp);
 			}
 			img.pixel_data = img_data;
-			struct image img_gauss;
-			img_out.width = img_scratch.width = img_scratch2.width = img_gauss.width = w;
-			img_out.height = img_scratch.height = img_scratch2.height = img_gauss.height = h;
+			img_out.width = img_gauss.width = w;
+			img_out.height = img_gauss.height = h;
 			unsigned char *img_gauss_data = malloc(w * h * sizeof(char));
 			img_gauss.pixel_data = img_gauss_data;
 			unsigned char *img_out_data = malloc(w * h * sizeof(char));
