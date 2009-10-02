@@ -24,31 +24,6 @@
 	OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*
-	build commands: gcc -Wall imageio.c fast-edge.c -o fastedge -lm -g -O3 -ffast-math
-	
-	> Perl uses gcc -g -O -pedantic -Wall -W -Wshadow -Wpointer-arith
-> -Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings
-> -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Wno-long-long
-
-And FreeBSD's make.conf sample has the following:
-
-# BDECFLAGS are a set of gcc warning settings that Bruce Evans has suggested
-# for use in developing FreeBSD and testing changes.  They can be used by
-# putting "CFLAGS+=3D${BDECFLAGS}" in /etc/make.conf.  -Wconversion is not
-# included here due to compiler bugs, e.g., mkdir()'s mode_t argument.
-#
-BDECFLAGS=3D	-W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align \
-		-Wcast-qual -Wchar-subscripts -Winline \
-		-Wmissing-prototypes -Wnested-externs -Wpointer-arith \
-		-Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings
-
-*/
-
-/*
-STRICT BUILD
-gcc -W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align -Wcast-qual -Wchar-subscripts -Winline -Wmissing-prototypes -Wnested-externs -Wpointer-arith -Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings imageio.c fast-edge.c example.c -o example -lm -g -O3 -ffast-math
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +31,6 @@ gcc -W -Wall -ansi -pedantic -Wbad-function-cast -Wcast-align -Wcast-qual -Wchar
 #include <time.h>
 #include "imageio.h"
 #include "fast-edge.h"
-
 
 /*
 	CANNY EDGE DETECT
