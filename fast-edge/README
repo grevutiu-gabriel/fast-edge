@@ -10,7 +10,7 @@ FAST-EDGE seeks to be the fastest edge detection implementation in C using only 
 Compilation
 -----------
 To compile the example application, use:
-gcc -W -Wall -o fast-edge imageio.c fast-edge.c example.c -O3
+gcc -W -Wall -o fast-edge imageio.c fast-edge.c example.c -O3 -lm
 
 Explanation of the Example
 --------------------------
